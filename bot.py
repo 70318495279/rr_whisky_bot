@@ -11,7 +11,7 @@ async def main():
         raise SystemExit("Configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID.")
     bot = Bot(TOKEN)
     text = (
-        "🥃 *OFERTA DE UÍSQUE*\n\n"
+        "🥃 *OFERTA DE WHISKY*\n\n"
         "*Teste do RR WHISKY*\n"
         "🔥 Oferta encontrada no Mercado Livre\n\n"
         f"👉 [VER OFERTA]({AFFILIATE_LINK})\n\n"
