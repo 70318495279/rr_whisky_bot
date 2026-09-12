@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RR Whisky — Ofertas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0b0d;color:#f5f1e8;font-family:Arial,sans-serif}
+header{text-align:center;padding:25px;border-bottom:1px solid #332916}
+.logo{font-size:30px;font-weight:800;letter-spacing:2px;color:#d8b15a}.sub{color:#aaa;margin-top:5px}
+.wrap{max-width:1100px;margin:auto;padding:20px 16px 50px}
+.notice{margin:18px auto;padding:12px 16px;max-width:1050px;border:1px solid #3a2d17;border-radius:12px;background:#15120d;color:#c9b98f;text-align:center;font-size:13px}
+.toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+button{cursor:pointer}.filters button,.cartBtn{padding:10px 14px;border-radius:10px;border:1px solid #55431f;background:#15130f;color:#eee}
+.filters .active,.cartBtn,.buy,.checkout{background:#c59a3b;color:#111;font-weight:700;border-color:#c59a3b}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.card{background:#131316;border:1px solid #2a2a2e;border-radius:16px;overflow:hidden}
+.card img{width:100%;height:245px;object-fit:contain;background:#eee}
+.info{padding:15px}.source{font-size:11px;color:#c59a3b;text-transform:uppercase;letter-spacing:1px}
+h2{font-size:17px;min-height:42px}.price{font-size:26px;font-weight:800;color:#f0cc73}
+.old{text-decoration:line-through;color:#777;font-size:13px;margin-left:7px}.buy{width:100%;margin-top:13px;padding:12px;border-radius:10px}
+.modal,.age{position:fixed;inset:0;background:#000c;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{display:none}.box{max-width:520px;width:100%;background:#151518;border:1px solid #3a3020;border-radius:18px;padding:22px}
+.close{float:right;background:none;border:0;color:#aaa;font-size:25px}input{width:100%;padding:12px;margin:7px 0;background:#0d0d0f;border:1px solid #333;color:#fff;border-radius:9px}
+.checkout{width:100%;padding:13px;border:0;border-radius:10px}footer{text-align:center;color:#777;font-size:12px;padding:25px}
+.age button{padding:12px 20px;border:0;border-radius:10px;background:#c59a3b;font-weight:700}
+</style>
+</head>
+<body>
+<div class="age" id="age"><div class="box" style="text-align:center">
+<h1>RR Whisky</h1><p>Você precisa ter 18 anos ou mais para acessar.</p>
+<button onclick="enter()">Tenho 18 anos ou mais</button></div></div>
+
+<header><div class="logo">RR WHISKY</div><div class="sub">Ofertas de Whisky</div></header>
+<div class="notice">Confira o preço promocional e as condições da oferta antes da compra.</div>
+
+<main class="wrap">
+<div class="toolbar">
+<div class="filters">
+<button class="active" onclick="filtrar('Todos',this)">Todos</button>
+<button onclick="filtrar('Shopee',this)">Shopee</button>
+<button onclick="filtrar('Mercado Livre',this)">Mercado Livre</button>
+</div>
+<button class="cartBtn" onclick="abrir()">🛒 Carrinho (<span id="count">0</span>)</button>
+</div>
+<div class="grid" id="grid"></div>
+</main>
+
+<footer>RR Whisky • Conteúdo destinado a maiores de 18 anos.</footer>
+
+<div class="modal" id="modal"><div class="box">
+<button class="close" onclick="fechar()">×</button>
+<h2>Seu carrinho</h2><div id="items"></div>
+<div id="total" style="font-size:20px;font-weight:800;margin:15px 0"></div>
+<h3>Checkout</h3>
+<input placeholder="Nome"><input placeholder="Telefone"><input placeholder="Endereço de entrega">
+<p style="color:#aaa;font-size:13px">O frete será calculado no final da compra.</p>
+<button class="checkout" onclick="alert('Checkout demonstrativo. O pedido não é processado por este site.')">Finalizar pedido</button>
+</div></div>
+
+<script>
+const baseProducts=[
+{id:1,n:'Johnnie Walker Black Label 1L',s:'Shopee',p:156.66,o:241,img:'https://commons.wikimedia.org/wiki/Special:Redirect/file/Black%20Label1.JPG'},
+{id:2,n:'Chivas Regal 12 anos 1L',s:'Shopee',p:142.41,o:269.90,img:'https://commons.wikimedia.org/wiki/Special:Redirect/file/Chivas%20Regal.jpg'},
+{id:3,n:'Johnnie Walker Red Label 1L',s:'Shopee',p:78.90,o:151.90,img:'https://commons.wikimedia.org/wiki/Special:Redirect/file/Johnnie%20Walker%20Red%20Label.jpg'},
+{id:4,n:"Ballantine's Finest 1L",s:'Mercado Livre',p:85.41,o:129.90,img:"https://commons.wikimedia.org/wiki/Special:Redirect/file/2017%20Ballantine%27s%20Finest.jpg"}
+];
+// Preço mostrado no RR Whisky = preço promocional x 1,25.
+// O frete NÃO entra no preço do produto e será tratado no final da compra.
+const ps=baseProducts.map(x=>({...x,rrPrice:x.p*1.25}));
+let cart=JSON.parse(localStorage.rrcart||'[]'),f='Todos';
+const brl=n=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+function render(){
+let a=f==='Todos'?ps:ps.filter(x=>x.s===f);
+grid.innerHTML=a.map(x=>`<article class="card">
+<img src="${x.img}" alt="${x.n}">
+<div class="info"><div class="source">${x.s}</div><h2>${x.n}</h2>
+<span class="price">${brl(x.rrPrice)}</span>
+<span class="old">${brl(x.o)}</span>
+<button class="buy" onclick="add(${x.id})">Adicionar ao carrinho</button>
+</div></article>`).join('');
+count.textContent=cart.reduce((a,x)=>a+x.q,0);
+}
+
+function add(id){let x=cart.find(a=>a.id===id);x?x.q++:cart.push({id,q:1});save();alert('Adicionado ao carrinho.')}
+function save(){localStorage.rrcart=JSON.stringify(cart);render();updateCart()}
+function updateCart(){
+if(!cart.length){items.innerHTML='<p style="color:#aaa">Seu carrinho está vazio.</p>';total.textContent='';return}
+let t=0;
+items.innerHTML=cart.map(i=>{let p=ps.find(x=>x.id===i.id),v=p.rrPrice*i.q;t+=v;return `<p>${i.q}× ${p.n}<br><b>${brl(v)}</b></p>`}).join('');
+total.textContent='Total dos produtos: '+brl(t);
+}
+function abrir(){modal.style.display='flex';updateCart()}function fechar(){modal.style.display='none'}
+function filtrar(x,b){f=x;document.querySelectorAll('.filters button').forEach(y=>y.classList.remove('active'));b.classList.add('active');render()}
+function enter(){localStorage.rr18='1';age.style.display='none'}
+if(localStorage.rr18)age.style.display='none';render();
+</script>
+</body>
+</html>
