@@ -4,7 +4,7 @@ from telegram import Bot
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-AFFILIATE_LINK = "https://AFFILIATE_LINK = "https://s.shopee.com.br/7AdUpmPCb2"
+AFFILIATE_LINK = "https://s.shopee.com.br/7AdUpmPCb2"
 
 async def main():
     if not TOKEN or not CHAT_ID:
