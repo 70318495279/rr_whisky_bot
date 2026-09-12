@@ -2,76 +2,86 @@ import os
 import asyncio
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import quote, urlparse
 from telegram import Bot
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
-URL = "https://shopee.com.br/search?keyword=whisky"
+BUSCA = "whisky site:shopee.com.br"
 
 
 def buscar_ofertas():
+
+    consulta = quote(BUSCA)
+
+    url = f"https://www.google.com/search?q={consulta}&num=10"
+
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 "
+            "(KHTML, like Gecko) "
             "Chrome/131.0.0.0 Safari/537.36"
         ),
-        "Accept-Language": "pt-BR,pt;q=0.9",
-        "Accept": "text/html,application/xhtml+xml,"
-                  "application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9"
     }
 
-    print("🌐 Acessando Shopee...")
+    print("🔎 Procurando ofertas da Shopee...")
 
     resposta = requests.get(
-        URL,
+        url,
         headers=headers,
         timeout=30
     )
 
-    print(f"📡 Status Shopee: {resposta.status_code}")
-    print(f"📦 Tamanho da resposta: {len(resposta.text)} caracteres")
+    print(f"📡 Status da busca: {resposta.status_code}")
 
     resposta.raise_for_status()
 
     soup = BeautifulSoup(resposta.text, "html.parser")
 
-    # Procuramos links de produtos.
-    links = soup.find_all("a", href=True)
-
     ofertas = []
     vistos = set()
 
-    for link in links:
+    for resultado in soup.select("a"):
 
-        href = link.get("href", "")
+        href = resultado.get("href", "")
 
-        if "/product/" not in href:
+        if "shopee.com.br" not in href:
             continue
 
-        titulo = link.get_text(" ", strip=True)
+        if href in vistos:
+            continue
+
+        titulo = resultado.get_text(" ", strip=True)
 
         if not titulo:
             continue
 
-        if href.startswith("/"):
-            href = "https://shopee.com.br" + href
+        # Evita links gerais da Shopee
+        partes_invalidas = [
+            "/search",
+            "/m/",
+            "/mall",
+            "/buyer",
+            "/seller"
+        ]
 
-        if href in vistos:
+        if any(parte in href for parte in partes_invalidas):
             continue
 
         vistos.add(href)
 
         ofertas.append({
-            "titulo": titulo,
+            "titulo": titulo[:200],
             "link": href
         })
 
         if len(ofertas) >= 5:
             break
 
-    print(f"🔎 Produtos encontrados: {len(ofertas)}")
+    print(f"🛒 Links da Shopee encontrados: {len(ofertas)}")
 
     return ofertas
 
@@ -79,9 +89,11 @@ def buscar_ofertas():
 def criar_mensagem(oferta):
 
     return (
-        "🥃🔥 *OFERTA DE WHISKY NA SHOPEE*\n\n"
+        "🥃🔥 *OFERTA DE WHISKY*\n\n"
         f"*{oferta['titulo']}*\n\n"
-        f"🛒 [VER OFERTA]({oferta['link']})\n\n"
+        "🛒 [VER OFERTA]("
+        f"{oferta['link']}"
+        ")\n\n"
         "⚠️ Preço e disponibilidade podem mudar.\n"
         "🔞 Venda de bebidas alcoólicas somente para maiores de 18 anos."
     )
@@ -100,14 +112,15 @@ async def main():
         )
 
     print("🥃 RR WHISKY BOT")
-    print("🔎 Procurando ofertas na Shopee...")
+    print("🔎 Procurando promoções na Shopee...")
 
     ofertas = buscar_ofertas()
 
     if not ofertas:
-        print("⚠️ A Shopee respondeu, mas não entregou links de produtos.")
-        print("ℹ️ Isso pode acontecer quando a Shopee exige JavaScript ou bloqueia o acesso automático.")
+        print("⚠️ Nenhum resultado da Shopee encontrado.")
         return
+
+    print(f"✅ {len(ofertas)} resultados encontrados.")
 
     bot = Bot(TOKEN)
 
@@ -116,23 +129,33 @@ async def main():
     for oferta in ofertas:
 
         try:
+
+            mensagem = criar_mensagem(oferta)
+
             await bot.send_message(
                 chat_id=CHAT_ID,
-                text=criar_mensagem(oferta),
+                text=mensagem,
                 parse_mode="Markdown",
                 disable_web_page_preview=False
             )
 
             enviadas += 1
 
-            print(f"📨 Enviada: {oferta['titulo']}")
+            print(
+                f"📨 Enviada: {oferta['titulo']}"
+            )
 
             await asyncio.sleep(3)
 
         except Exception as erro:
-            print(f"❌ Erro no Telegram: {erro}")
 
-    print(f"✅ Finalizado. {enviadas} ofertas enviadas.")
+            print(
+                f"❌ Erro ao enviar: {erro}"
+            )
+
+    print(
+        f"✅ Finalizado. {enviadas} ofertas enviadas ao Telegram."
+    )
 
 
 if __name__ == "__main__":
