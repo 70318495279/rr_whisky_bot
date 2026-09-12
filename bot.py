@@ -2,96 +2,76 @@ import os
 import asyncio
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import quote
 from telegram import Bot
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
-BUSCA = "whisky"
+URL = "https://shopee.com.br/search?keyword=whisky"
 
 
 def buscar_ofertas():
-    url = "https://lista.mercadolivre.com.br/" + quote(BUSCA)
-
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) "
-            "AppleWebKit/537.36 "
-            "(KHTML, like Gecko) "
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/131.0.0.0 Safari/537.36"
         ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-BR,pt;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,"
+                  "application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     }
 
-    print(f"🌐 Acessando: {url}")
+    print("🌐 Acessando Shopee...")
 
-    response = requests.get(
-        url,
+    resposta = requests.get(
+        URL,
         headers=headers,
         timeout=30
     )
 
-    print(f"📡 Status Mercado Livre: {response.status_code}")
+    print(f"📡 Status Shopee: {resposta.status_code}")
+    print(f"📦 Tamanho da resposta: {len(resposta.text)} caracteres")
 
-    response.raise_for_status()
+    resposta.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(resposta.text, "html.parser")
+
+    # Procuramos links de produtos.
+    links = soup.find_all("a", href=True)
 
     ofertas = []
+    vistos = set()
 
-    # Estrutura atual do Mercado Livre
-    itens = soup.select(".poly-card")
+    for link in links:
 
-    print(f"🔎 Produtos encontrados na página: {len(itens)}")
+        href = link.get("href", "")
 
-    for item in itens:
-
-        titulo_elemento = item.select_one(
-            ".poly-component__title"
-        )
-
-        preco_elemento = item.select_one(
-            ".poly-price__current .andes-money-amount__fraction"
-        )
-
-        link_elemento = item.select_one(
-            "a.poly-component__title"
-        )
-
-        if not titulo_elemento:
+        if "/product/" not in href:
             continue
 
-        if not preco_elemento:
+        titulo = link.get_text(" ", strip=True)
+
+        if not titulo:
             continue
 
-        if not link_elemento:
+        if href.startswith("/"):
+            href = "https://shopee.com.br" + href
+
+        if href in vistos:
             continue
 
-        titulo = titulo_elemento.get_text(
-            " ",
-            strip=True
-        )
-
-        preco = preco_elemento.get_text(
-            " ",
-            strip=True
-        )
-
-        link = link_elemento.get("href")
-
-        if not titulo or not preco or not link:
-            continue
+        vistos.add(href)
 
         ofertas.append({
             "titulo": titulo,
-            "preco": preco,
-            "link": link
+            "link": href
         })
 
         if len(ofertas) >= 5:
             break
+
+    print(f"🔎 Produtos encontrados: {len(ofertas)}")
 
     return ofertas
 
@@ -99,9 +79,8 @@ def buscar_ofertas():
 def criar_mensagem(oferta):
 
     return (
-        "🥃🔥 *OFERTA DE WHISKY*\n\n"
+        "🥃🔥 *OFERTA DE WHISKY NA SHOPEE*\n\n"
         f"*{oferta['titulo']}*\n\n"
-        f"💰 *R$ {oferta['preco']}*\n\n"
         f"🛒 [VER OFERTA]({oferta['link']})\n\n"
         "⚠️ Preço e disponibilidade podem mudar.\n"
         "🔞 Venda de bebidas alcoólicas somente para maiores de 18 anos."
@@ -112,24 +91,23 @@ async def main():
 
     if not TOKEN:
         raise SystemExit(
-            "ERRO: TELEGRAM_BOT_TOKEN não configurado."
+            "❌ TELEGRAM_BOT_TOKEN não configurado."
         )
 
     if not CHAT_ID:
         raise SystemExit(
-            "ERRO: TELEGRAM_CHAT_ID não configurado."
+            "❌ TELEGRAM_CHAT_ID não configurado."
         )
 
     print("🥃 RR WHISKY BOT")
-    print("🔎 Procurando ofertas de whisky...")
+    print("🔎 Procurando ofertas na Shopee...")
 
     ofertas = buscar_ofertas()
 
     if not ofertas:
-        print("⚠️ Nenhuma oferta encontrada.")
+        print("⚠️ A Shopee respondeu, mas não entregou links de produtos.")
+        print("ℹ️ Isso pode acontecer quando a Shopee exige JavaScript ou bloqueia o acesso automático.")
         return
-
-    print(f"✅ {len(ofertas)} ofertas encontradas!")
 
     bot = Bot(TOKEN)
 
@@ -138,33 +116,23 @@ async def main():
     for oferta in ofertas:
 
         try:
-
-            mensagem = criar_mensagem(oferta)
-
             await bot.send_message(
                 chat_id=CHAT_ID,
-                text=mensagem,
+                text=criar_mensagem(oferta),
                 parse_mode="Markdown",
                 disable_web_page_preview=False
             )
 
             enviadas += 1
 
-            print(
-                f"📨 Oferta enviada: {oferta['titulo']}"
-            )
+            print(f"📨 Enviada: {oferta['titulo']}")
 
             await asyncio.sleep(3)
 
         except Exception as erro:
+            print(f"❌ Erro no Telegram: {erro}")
 
-            print(
-                f"❌ Erro ao enviar oferta: {erro}"
-            )
-
-    print(
-        f"✅ Finalizado! {enviadas} ofertas enviadas para o Telegram."
-    )
+    print(f"✅ Finalizado. {enviadas} ofertas enviadas.")
 
 
 if __name__ == "__main__":
