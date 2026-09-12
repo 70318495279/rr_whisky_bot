@@ -1,16 +1,12 @@
-
 import os
-import asyncio
 import requests
+import asyncio
 from telegram import Bot
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 SEARCH_URL = "https://api.mercadolibre.com/sites/MLB/search"
-INTERVALO_MINUTOS = 30
-
-enviados = set()
 
 
 def buscar_ofertas():
@@ -20,7 +16,12 @@ def buscar_ofertas():
         "sort": "price_asc"
     }
 
-    response = requests.get(SEARCH_URL, params=params, timeout=20)
+    response = requests.get(
+        SEARCH_URL,
+        params=params,
+        timeout=20
+    )
+
     response.raise_for_status()
 
     produtos = response.json().get("results", [])
@@ -31,17 +32,11 @@ def buscar_ofertas():
         titulo = produto.get("title", "")
         preco = produto.get("price")
         link = produto.get("permalink")
-        produto_id = produto.get("id")
 
         if not titulo or not preco or not link:
             continue
 
-        # Evita produtos repetidos
-        if produto_id in enviados:
-            continue
-
         ofertas.append({
-            "id": produto_id,
             "titulo": titulo,
             "preco": preco,
             "link": link
@@ -55,20 +50,29 @@ def criar_mensagem(oferta):
         "🥃🔥 *OFERTA DE WHISKY*\n\n"
         f"*{oferta['titulo']}*\n\n"
         f"💰 *R$ {oferta['preco']:.2f}*\n\n"
-        "🛒 [VER OFERTA]("
-        f"{oferta['link']}"
-        ")\n\n"
+        f"🛒 [VER OFERTA]({oferta['link']})\n\n"
         "⚠️ Preço e disponibilidade podem mudar.\n"
         "🔞 Venda de bebidas alcoólicas somente para maiores de 18 anos."
     )
 
 
-async def enviar_ofertas():
+async def main():
+
+    if not TOKEN or not CHAT_ID:
+        raise SystemExit(
+            "ERRO: configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID."
+        )
+
     bot = Bot(TOKEN)
 
     ofertas = buscar_ofertas()
 
+    if not ofertas:
+        print("Nenhuma oferta encontrada.")
+        return
+
     for oferta in ofertas:
+
         mensagem = criar_mensagem(oferta)
 
         await bot.send_message(
@@ -78,24 +82,11 @@ async def enviar_ofertas():
             disable_web_page_preview=False
         )
 
-        enviados.add(oferta["id"])
+        print(f"Enviado: {oferta['titulo']}")
 
         await asyncio.sleep(3)
 
-
-async def main():
-    if not TOKEN or not CHAT_ID:
-        raise SystemExit(
-            "Configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID."
-        )
-
-    while True:
-        try:
-            await enviar_ofertas()
-        except Exception as erro:
-            print(f"Erro: {erro}")
-
-        await asyncio.sleep(INTERVALO_MINUTOS * 60)
+    print("✅ Ofertas enviadas com sucesso.")
 
 
 if __name__ == "__main__":
